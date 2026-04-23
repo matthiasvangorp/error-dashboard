@@ -5,9 +5,9 @@
     $subHeadingStyle = 'font-size:0.875rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:1rem;margin-bottom:0.25rem;';
     $paraStyle = 'margin-bottom:0.75rem;line-height:1.6;';
     $liStyle = 'margin-bottom:0.35rem;';
-    $kbdStyle = 'background:#f3f4f6;border:1px solid #e5e7eb;border-radius:0.25rem;padding:0.05rem 0.35rem;font-size:0.8125rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;';
-    $calloutStyle = 'border-left:3px solid #f59e0b;background:#fffbeb;padding:0.75rem 1rem;margin:0.75rem 0;font-size:0.875rem;border-radius:0 0.25rem 0.25rem 0;';
-    $calloutInfoStyle = 'border-left:3px solid #3b82f6;background:#eff6ff;padding:0.75rem 1rem;margin:0.75rem 0;font-size:0.875rem;border-radius:0 0.25rem 0.25rem 0;';
+    $kbdStyle = 'background:rgba(148,163,184,0.2);border:1px solid rgba(148,163,184,0.3);border-radius:0.25rem;padding:0.05rem 0.35rem;font-size:0.8125rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:inherit;';
+    $calloutStyle = 'border-left:3px solid #f59e0b;background:rgba(245,158,11,0.1);padding:0.75rem 1rem;margin:0.75rem 0;font-size:0.875rem;border-radius:0 0.25rem 0.25rem 0;color:inherit;';
+    $calloutInfoStyle = 'border-left:3px solid #3b82f6;background:rgba(59,130,246,0.12);padding:0.75rem 1rem;margin:0.75rem 0;font-size:0.875rem;border-radius:0 0.25rem 0.25rem 0;color:inherit;';
     $linkStyle = 'color:#2563eb;text-decoration:underline;';
 @endphp
 
