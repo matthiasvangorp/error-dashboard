@@ -172,6 +172,22 @@ class IngestTest extends TestCase
         $this->assertTrue($limited, 'Rate limiter should kick in after 2 requests');
     }
 
+    public function test_client_timestamp_with_offset_is_stored_as_utc(): void
+    {
+        // Client sends 2026-04-23T20:36:49+02:00 which is 18:36:49 UTC.
+        $payload = $this->exceptionPayload(['timestamp' => '2026-04-23T20:36:49+02:00']);
+        $body = json_encode($payload);
+
+        $this->postJson("/api/ingest/{$this->project->token}", $payload, [
+            'X-Signature' => $this->sign($body),
+        ])->assertStatus(202);
+
+        $issue = Issue::first();
+        // Expect Carbon stored in UTC — 18:36:49 — not the raw +02 local string.
+        $this->assertSame('UTC', $issue->last_seen_at->timezone->getName());
+        $this->assertSame('2026-04-23 18:36:49', $issue->last_seen_at->format('Y-m-d H:i:s'));
+    }
+
     public function test_log_events_group_by_templatized_message(): void
     {
         Queue::fake();

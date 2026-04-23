@@ -29,9 +29,14 @@ class IssueUpsertService
         $environment = $context['environment'] ?? null;
         $release = $context['release'] ?? null;
 
-        $receivedAt = isset($payload['timestamp'])
+        // Normalize to UTC: clients send ATOM-formatted timestamps in whatever
+        // local zone their PHP uses (e.g. "2026-04-23T20:36:49+02:00"). Without
+        // ->utc(), Eloquent formats the Carbon in its current timezone when
+        // writing to MySQL, so the offset is lost and the stored time ends up
+        // shifted forward by the offset amount.
+        $receivedAt = (isset($payload['timestamp'])
             ? CarbonImmutable::parse($payload['timestamp'])
-            : CarbonImmutable::now();
+            : CarbonImmutable::now())->utc();
 
         return DB::transaction(function () use (
             $project, $payload, $fingerprint, $title, $type, $level, $environment, $release, $receivedAt
