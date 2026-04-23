@@ -42,14 +42,12 @@ class ProjectResource extends Resource
                         ->required()
                         ->maxLength(64)
                         ->default(fn () => Str::random(32))
-                        ->copyable()
                         ->disabled(fn (?Project $record) => $record !== null)
                         ->dehydrated(),
                     Forms\Components\TextInput::make('secret')
                         ->required()
                         ->maxLength(255)
                         ->default(fn () => Str::random(48))
-                        ->copyable()
                         ->password()
                         ->revealable()
                         ->dehydrated(),
