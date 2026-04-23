@@ -54,7 +54,7 @@ class ViewIssue extends ViewRecord
                     TextEntry::make('environment')->default('—'),
                     TextEntry::make('fingerprint')
                         ->copyable()
-                        ->formatStateUsing(fn (string $s) => substr($s, 0, 16).'…'),
+                        ->formatStateUsing(fn (string $state) => substr($state, 0, 16).'…'),
                 ]),
 
             Section::make('Latest event')
