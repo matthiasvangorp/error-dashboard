@@ -2,8 +2,51 @@
     $event = $getRecord()->lastEvent;
     $payload = $event?->payload ?? [];
     $exception = $payload['exception'] ?? null;
+    $log = $payload['log'] ?? null;
     $context = $payload['context'] ?? [];
     $preStyle = 'background:#0f172a;color:#e2e8f0;padding:0.75rem;border-radius:0.375rem;font-size:0.75rem;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;';
+
+    $formatFrame = function (array $frame, int $i): string {
+        $call = trim(($frame['class'] ?? '').($frame['type'] ?? '').($frame['function'] ?? ''));
+        $loc = ($frame['file'] ?? '[internal]').'('.($frame['line'] ?? '?').')';
+        return '#'.$i.' '.$loc.': '.($call !== '' ? $call.'()' : '');
+    };
+
+    $formatException = function (array $ex) use ($formatFrame, &$formatException): string {
+        $header = ($ex['class'] ?? 'Exception').': '.($ex['message'] ?? '')
+            .' at '.($ex['file'] ?? '?').':'.($ex['line'] ?? '?');
+        $lines = [$header];
+        $trace = $ex['trace'] ?? [];
+        if (is_string($trace)) {
+            $lines[] = $trace;
+        } elseif (is_array($trace) && $trace !== []) {
+            foreach ($trace as $i => $frame) {
+                if (is_array($frame)) {
+                    $lines[] = $formatFrame($frame, $i);
+                }
+            }
+        }
+        if (! empty($ex['previous']) && is_array($ex['previous'])) {
+            $lines[] = '';
+            $lines[] = 'Caused by: '.$formatException($ex['previous']);
+        }
+        return implode("\n", $lines);
+    };
+
+    $ts = $event?->received_at?->format('Y-m-d H:i:s') ?? ($payload['timestamp'] ?? '');
+    $env = $event?->environment ?? ($context['environment'] ?? 'app');
+
+    $rawText = null;
+    if ($exception) {
+        $rawText = '['.$ts.'] '.$env.'.ERROR: '.$formatException($exception);
+    } elseif ($log) {
+        $level = strtoupper($log['level'] ?? 'info');
+        $channel = $log['channel'] ?? 'default';
+        $rawText = '['.$ts.'] '.$channel.'.'.$level.': '.($log['message'] ?? '');
+        if (! empty($log['context'])) {
+            $rawText .= ' '.json_encode($log['context'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+    }
 @endphp
 
 @if ($event)
@@ -37,8 +80,15 @@
             </div>
         @endif
 
+        @if ($rawText !== null)
+            <details open>
+                <summary style="cursor:pointer;font-size:0.75rem;color:#6b7280;">Raw log</summary>
+                <pre style="{{ $preStyle }} margin-top:0.5rem;">{{ $rawText }}</pre>
+            </details>
+        @endif
+
         <details>
-            <summary style="cursor:pointer;font-size:0.75rem;color:#6b7280;">View raw JSON</summary>
+            <summary style="cursor:pointer;font-size:0.75rem;color:#6b7280;">Raw JSON</summary>
             <pre style="{{ $preStyle }} margin-top:0.5rem;">{{ json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
         </details>
     </div>
