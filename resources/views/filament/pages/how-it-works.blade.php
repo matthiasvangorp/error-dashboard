@@ -16,21 +16,21 @@
         <h2 style="{{ $headingStyle }}">The two sides</h2>
 
         <p style="{{ $paraStyle }}">
-            <strong>The client package</strong> — <code style="{{ $kbdStyle }}">matthiasvangorp/error-reporter</code> — hooks into your app's exception handler. When an unhandled exception fires (or, optionally, when you call <code style="{{ $kbdStyle }}">Log::error()</code>), the package builds a structured payload: the exception class, message, file, line, stack trace, plus a scrubbed snapshot of the request (URL, method, user id, IP, headers, request body). It signs that payload with an HMAC and dispatches a queued job that POSTs it to this dashboard over HTTPS. The whole thing is designed to fail silently — if the dashboard is unreachable, your app keeps serving traffic without noticing.
+            <strong>The client package</strong> — <code style="{{ $kbdStyle }}">matthiasvangorp/error-reporter</code> — quietly watches your app for unhandled exceptions (and, if you turn it on, <code style="{{ $kbdStyle }}">Log::error()</code> calls). When one fires, it bundles up everything worth knowing — the error itself, the file and line it happened on, the stack trace, and a cleaned-up snapshot of the incoming request — and hands that package off to a background job. The job stamps it with a cryptographic fingerprint (more on that below) and posts it to this dashboard over HTTPS. The whole thing is designed to fail silently: if the dashboard is unreachable or slow, your app keeps serving traffic like nothing happened.
         </p>
 
         <p style="{{ $paraStyle }}">
-            <strong>This dashboard</strong> exposes one ingest endpoint — <code style="{{ $kbdStyle }}">POST {{ $endpoint }}/api/ingest/&lbrace;project_token&rbrace;</code> — that verifies the HMAC signature against the project's secret, rate-limits the request, parses the payload, and writes two rows: an <em>event</em> (the raw payload as-received) and, unless one already exists with the same fingerprint, an <em>issue</em> (the deduped grouping the event belongs to).
+            <strong>This dashboard</strong> listens on a single URL for those payloads. It first checks that the stamp matches what it expects from the sending app (so nobody can spoof events). Then it saves the raw payload as an <em>event</em>, and either creates a new <em>issue</em> for it (the first time this particular error is seen) or attaches it to an existing issue if something just like it has been reported before.
         </p>
 
-        <h2 style="{{ $headingStyle }}">Why fingerprinting</h2>
+        <h2 style="{{ $headingStyle }}">Why grouping matters</h2>
 
         <p style="{{ $paraStyle }}">
-            A single bug usually fires thousands of times before anyone notices. Storing each occurrence as a separate issue would make the dashboard useless. So every incoming event is hashed into a short "fingerprint" — for exceptions, <code style="{{ $kbdStyle }}">sha256(class + normalized_file + line)</code>; for log events, <code style="{{ $kbdStyle }}">sha256(channel + level + templatized_message)</code>. The log fingerprint replaces numbers, UUIDs, and quoted strings with placeholders first, so <em>"User 1234 not found"</em> and <em>"User 5678 not found"</em> collapse into the same issue.
+            A single bug usually fires thousands of times before anyone notices — every page refresh, every retry, every unlucky user. If every occurrence became its own issue, the dashboard would be useless noise. So each incoming event gets reduced to a short identifier — a "fingerprint" — built from the stable parts of the error (the exception class, the file and the line, or in the case of a log message, the log channel and a templated version of the message). Anything that varies from occurrence to occurrence is stripped out before fingerprinting. So <em>"User 1234 not found"</em> and <em>"User 5678 not found"</em> end up with the same fingerprint, and collapse into a single issue.
         </p>
 
         <p style="{{ $paraStyle }}">
-            The second time a fingerprint arrives, the dashboard just increments a counter and updates <code style="{{ $kbdStyle }}">last_seen_at</code> on the existing issue. You see how often something happens without drowning in duplicates.
+            The second time a given fingerprint arrives, the dashboard just bumps a counter on the existing issue and updates when it was last seen. You see how often something's happening without drowning in duplicates.
         </p>
 
         <h2 style="{{ $headingStyle }}">Signal-to-noise rule for alerts</h2>
@@ -39,14 +39,20 @@
             Alerts (Telegram or email, configured per project) fire in exactly two cases: when an issue is created for the first time, or when an already-<em>resolved</em> issue is reopened by a new event. They never fire on repeat occurrences of an open issue — the counter ticks up quietly. This is the thing that keeps the notifications useful instead of turning into background radiation.
         </p>
 
-        <h2 style="{{ $headingStyle }}">Security + privacy</h2>
+        <h2 style="{{ $headingStyle }}">Making sure it's really your app</h2>
 
         <p style="{{ $paraStyle }}">
-            Each project has a <code style="{{ $kbdStyle }}">token</code> (public path segment) and a <code style="{{ $kbdStyle }}">secret</code> (HMAC signing key). Every request must carry an <code style="{{ $kbdStyle }}">X-Signature</code> header that the dashboard verifies with <code style="{{ $kbdStyle }}">hash_equals</code> — an invalid signature gets a 401 and nothing is written. The token/secret pair is scoped to one project, so a leaked secret only affects that project's stream.
+            Each project here has two pieces of ID: a <code style="{{ $kbdStyle }}">token</code> (it's part of the URL the client posts to — not secret, just an address) and a <code style="{{ $kbdStyle }}">secret</code> (a long random string that only the client and this dashboard know). Every time the client sends an event, it mixes the secret and the payload together to produce a tamper-evident stamp. The dashboard runs the same calculation with its copy of the secret — if the stamps match, the event is genuine; if they don't, the request is refused. Anyone who gets hold of the stream can't forge events without the secret, and can't alter a captured payload without the stamp no longer matching. The technical term for this is <strong>HMAC</strong> — shorthand for "a signature that proves both authenticity and integrity."
         </p>
 
         <p style="{{ $paraStyle }}">
-            Before a payload leaves the client, the package scrubs a list of known-sensitive keys from request data, headers, session, and any custom context you attach: <code style="{{ $kbdStyle }}">password</code>, <code style="{{ $kbdStyle }}">token</code>, <code style="{{ $kbdStyle }}">api_token</code>, <code style="{{ $kbdStyle }}">cookie</code>, <code style="{{ $kbdStyle }}">credit_card</code>, <code style="{{ $kbdStyle }}">cvv</code>, etc. The <code style="{{ $kbdStyle }}">Authorization</code> header is always redacted regardless of the configured list. The scrub list is extensible per-project.
+            Because each project has its own token/secret pair, a leaked secret only affects that one project. Rotate it from the Projects page and the old one is dead immediately.
+        </p>
+
+        <h2 style="{{ $headingStyle }}">Not shipping passwords by accident</h2>
+
+        <p style="{{ $paraStyle }}">
+            Errors that happen during a real HTTP request can pick up form fields, headers, and session data on their way out — which is exactly what you want for debugging and exactly what you don't want if a user just submitted their password on the form that crashed. Before the client hands a payload to the background job, it walks through everything and redacts values whose key names look sensitive: <code style="{{ $kbdStyle }}">password</code>, <code style="{{ $kbdStyle }}">token</code>, <code style="{{ $kbdStyle }}">api_token</code>, <code style="{{ $kbdStyle }}">cookie</code>, <code style="{{ $kbdStyle }}">credit_card</code>, <code style="{{ $kbdStyle }}">cvv</code>, and a few more. The <code style="{{ $kbdStyle }}">Authorization</code> header is always blanked out regardless of configuration. You can add your own app-specific keys to the list (social security numbers, phone numbers, whatever) in each client app's config file.
         </p>
 
         <h2 style="{{ $headingStyle }}">Data lifecycle</h2>
