@@ -81,9 +81,15 @@
         @endif
 
         @if ($rawText !== null)
-            <details open>
-                <summary style="cursor:pointer;font-size:0.75rem;color:#6b7280;">Raw log</summary>
-                <pre style="{{ $preStyle }} margin-top:0.5rem;">{{ $rawText }}</pre>
+            <details open x-data="{ copied: false }">
+                <summary style="cursor:pointer;font-size:0.75rem;color:#6b7280;display:flex;align-items:center;gap:0.5rem;">
+                    <span>Raw log</span>
+                    <button type="button"
+                        @click.stop.prevent="navigator.clipboard.writeText($refs.rawlog.innerText).then(() => { copied = true; setTimeout(() => copied = false, 1500); })"
+                        style="cursor:pointer;border:1px solid rgba(148,163,184,0.4);background:rgba(148,163,184,0.1);color:inherit;border-radius:0.25rem;padding:0.125rem 0.5rem;font-size:0.75rem;font-family:inherit;"
+                        x-text="copied ? 'Copied' : 'Copy'">Copy</button>
+                </summary>
+                <pre x-ref="rawlog" style="{{ $preStyle }} margin-top:0.5rem;">{{ $rawText }}</pre>
             </details>
         @endif
 
