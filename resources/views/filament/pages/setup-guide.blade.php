@@ -20,7 +20,7 @@
 
         <p style="{{ $paraStyle }}">
             <strong>Collector endpoint:</strong> <code style="{{ $kbdStyle }}">{{ $endpoint }}</code><br>
-            <strong>Client package:</strong> <code style="{{ $kbdStyle }}">{{ $packageName }}</code> &mdash; private, pulled from GitHub over SSH
+            <strong>Client package:</strong> <code style="{{ $kbdStyle }}">{{ $packageName }}</code> &mdash; public on <a href="{{ $packagistUrl }}" target="_blank" rel="noopener" style="{{ $linkStyle }}">Packagist</a>
         </p>
 
         {{-- Step 1 --}}
@@ -38,16 +38,9 @@
         {{-- Step 2 --}}
         <div style="{{ $sectionStyle }}">
             <h2 style="{{ $headingStyle }}">2. Install the client package</h2>
-            <p style="{{ $paraStyle }}">In the target Laravel app's <code style="{{ $kbdStyle }}">composer.json</code>, add the repository + require:</p>
-            <pre style="{{ $codeBlockStyle }}">"require": {
-    "matthiasvangorp/error-reporter": "dev-main"
-},
-"repositories": [
-    { "type": "vcs", "url": "{{ $packageUrl }}" }
-]</pre>
-            <p style="{{ $paraStyle }}">Then, inside the app container (or on any machine with SSH access to the private GitHub repo):</p>
-            <pre style="{{ $codeBlockStyle }}">composer update matthiasvangorp/error-reporter --prefer-dist</pre>
-            <p style="{{ $paraStyle }}">The service provider is auto-discovered via <code style="{{ $kbdStyle }}">extra.laravel.providers</code>. The package supports Laravel 10, 11, and 12 on PHP 8.2+.</p>
+            <p style="{{ $paraStyle }}">In the target Laravel app:</p>
+            <pre style="{{ $codeBlockStyle }}">composer require matthiasvangorp/error-reporter</pre>
+            <p style="{{ $paraStyle }}">No <code style="{{ $kbdStyle }}">repositories</code> block, no auth &mdash; the package is on Packagist. The service provider is auto-discovered via <code style="{{ $kbdStyle }}">extra.laravel.providers</code>. Supports Laravel 10, 11, 12 on PHP 8.2+.</p>
         </div>
 
         {{-- Step 3 --}}
@@ -93,39 +86,14 @@ class Handler extends ExceptionHandler
             <p style="{{ $paraStyle }}">Commit <code style="{{ $kbdStyle }}">composer.json</code>, <code style="{{ $kbdStyle }}">composer.lock</code>, and <code style="{{ $kbdStyle }}">.env.example</code>. Push to your remote.</p>
 
             <h3 style="{{ $subHeadingStyle }}">On the production server</h3>
-            <p style="{{ $paraStyle }}">The server needs SSH access to the private <code style="{{ $kbdStyle }}">error-reporter</code> repo so <code style="{{ $kbdStyle }}">composer install</code> can fetch it.</p>
-            <p style="{{ $paraStyle }}"><strong>One-time setup per server:</strong></p>
-            <pre style="{{ $codeBlockStyle }}"># Generate a read-only deploy key for this server
-ssh-keygen -t ed25519 -f ~/.ssh/error-reporter_server_deploy -N "" \
-  -C "error-reporter server deploy (read-only)"
-cat ~/.ssh/error-reporter_server_deploy.pub
-# Register the pub key at:
-#   github.com/matthiasvangorp/error-reporter/settings/keys/new
-#   → leave "Allow write access" UNCHECKED
-
-# Pin an SSH alias to this key (append to ~/.ssh/config):
-cat &gt;&gt; ~/.ssh/config &lt;&lt;EOF
-
-Host github-error-reporter
-  HostName github.com
-  User git
-  IdentityFile ~/.ssh/error-reporter_server_deploy
-  IdentitiesOnly yes
-EOF
-
-# Rewrite the public URL so composer uses that alias (and therefore the right key)
-git config --global url."git@github-error-reporter:matthiasvangorp/error-reporter.git".insteadOf \
-    "git@github.com:matthiasvangorp/error-reporter.git"</pre>
-
-            <p style="{{ $paraStyle }}"><strong>Then deploy</strong> the client app normally:</p>
             <pre style="{{ $codeBlockStyle }}">cd /var/www/html/your-app
 git pull
 composer install --no-interaction --optimize-autoloader
-# append ERROR_REPORTER_* to the server's .env
+# append ERROR_REPORTER_TOKEN + ERROR_REPORTER_SECRET to the server's .env
 php artisan config:cache</pre>
 
-            <div style="{{ $calloutStyle }}">
-                <strong>Per-server, not per-app:</strong> one SSH key + one <code style="{{ $kbdStyle }}">insteadOf</code> rewrite covers every Laravel app on the same server. Skip this block on servers where it's already done.
+            <div style="{{ $calloutInfoStyle }}">
+                No SSH keys, no <code style="{{ $kbdStyle }}">auth.json</code>, no per-server setup &mdash; the package is on Packagist, so <code style="{{ $kbdStyle }}">composer install</code> fetches it without authentication.
             </div>
         </div>
 

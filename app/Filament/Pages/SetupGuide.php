@@ -21,7 +21,7 @@ class SetupGuide extends Page
         return [
             'endpoint' => rtrim((string) config('app.url'), '/'),
             'packageName' => 'matthiasvangorp/error-reporter',
-            'packageUrl' => 'git@github.com:matthiasvangorp/error-reporter.git',
+            'packagistUrl' => 'https://packagist.org/packages/matthiasvangorp/error-reporter',
         ];
     }
 }
