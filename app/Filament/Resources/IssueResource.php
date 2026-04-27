@@ -201,42 +201,51 @@ class IssueResource extends Resource
     {
         $event = $issue->lastEvent;
         $payload = $event?->payload ?? [];
+        $url = static::getUrl('view', ['record' => $issue->id]);
+        $e = fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 
-        $lines = [];
-        $lines[] = '**Project:** '.$issue->project->name;
-        $lines[] = '**Environment:** '.($issue->environment ?? '—');
-        $lines[] = '**Level:** '.($issue->level instanceof IssueLevel ? $issue->level->label() : (string) $issue->level);
-        $lines[] = '**Type:** '.($issue->type instanceof IssueType ? $issue->type->label() : (string) $issue->type);
-        $lines[] = '**First seen:** '.$issue->first_seen_at?->toDateTimeString();
-        $lines[] = '**Last seen:** '.$issue->last_seen_at?->toDateTimeString();
-        $lines[] = '**Occurrences:** '.$issue->occurrence_count;
-        $lines[] = '';
-        $lines[] = '**Dashboard:** '.static::getUrl('view', ['record' => $issue->id]);
+        $level = $issue->level instanceof IssueLevel ? $issue->level->label() : (string) $issue->level;
+        $type = $issue->type instanceof IssueType ? $issue->type->label() : (string) $issue->type;
+
+        $rows = [
+            ['Project', $issue->project->name],
+            ['Environment', $issue->environment ?? '—'],
+            ['Level', $level],
+            ['Type', $type],
+            ['First seen', $issue->first_seen_at?->toDateTimeString()],
+            ['Last seen', $issue->last_seen_at?->toDateTimeString()],
+            ['Occurrences', (string) $issue->occurrence_count],
+        ];
+
+        $html = '<p><a href="'.$e($url).'" target="_blank" rel="noopener">View issue in Error Dashboard ↗</a></p>';
+        $html .= '<ul>';
+        foreach ($rows as [$label, $value]) {
+            $html .= '<li><strong>'.$e($label).':</strong> '.$e($value).'</li>';
+        }
+        $html .= '</ul>';
 
         if ($message = $payload['message'] ?? null) {
-            $lines[] = '';
-            $lines[] = '**Message:**';
-            $lines[] = (string) $message;
+            $html .= '<p><strong>Message:</strong></p><p>'.nl2br($e($message)).'</p>';
         }
 
         if ($exception = $payload['exception'] ?? null) {
-            $lines[] = '';
-            $lines[] = '**Exception:** '.($exception['class'] ?? '?').' at '.($exception['file'] ?? '?').':'.($exception['line'] ?? '?');
+            $html .= '<p><strong>Exception:</strong> '.$e($exception['class'] ?? '?')
+                .' at '.$e($exception['file'] ?? '?').':'.$e($exception['line'] ?? '?').'</p>';
+
             if (!empty($exception['trace']) && is_array($exception['trace'])) {
-                $lines[] = '';
-                $lines[] = '```';
+                $traceLines = [];
                 foreach (array_slice($exception['trace'], 0, 20) as $frame) {
-                    $lines[] = sprintf(
+                    $traceLines[] = sprintf(
                         '%s:%s %s',
                         $frame['file'] ?? '?',
                         $frame['line'] ?? '?',
                         $frame['function'] ?? ''
                     );
                 }
-                $lines[] = '```';
+                $html .= '<pre>'.$e(implode("\n", $traceLines)).'</pre>';
             }
         }
 
-        return implode("\n", $lines);
+        return $html;
     }
 }
