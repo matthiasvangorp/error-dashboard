@@ -127,6 +127,11 @@ class ProjectResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
+                Tables\Actions\Action::make('setup')
+                    ->label('Setup')
+                    ->icon('heroicon-o-rocket-launch')
+                    ->color('primary')
+                    ->url(fn (Project $record) => static::getUrl('setup', ['record' => $record])),
                 Tables\Actions\Action::make('regenerateSecret')
                     ->label('Regenerate secret')
                     ->icon('heroicon-o-key')
@@ -153,6 +158,7 @@ class ProjectResource extends Resource
             'index' => Pages\ListProjects::route('/'),
             'create' => Pages\CreateProject::route('/create'),
             'edit' => Pages\EditProject::route('/{record}/edit'),
+            'setup' => Pages\SetupProject::route('/{record}/setup'),
         ];
     }
 }
