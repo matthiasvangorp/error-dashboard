@@ -45,12 +45,15 @@ class ProjectResource extends Resource
                         ->disabled(fn (?Project $record) => $record !== null)
                         ->dehydrated(),
                     Forms\Components\TextInput::make('secret')
-                        ->required()
+                        ->required(fn (string $operation) => $operation === 'create')
                         ->maxLength(255)
                         ->default(fn () => Str::random(48))
                         ->password()
                         ->revealable()
-                        ->dehydrated(),
+                        ->dehydrated(fn ($state) => filled($state))
+                        ->helperText(fn (string $operation) => $operation === 'edit'
+                            ? 'Leave empty to keep the current secret.'
+                            : null),
                 ])->columns(2),
 
             Forms\Components\Section::make('Retention & rate limits')
@@ -94,7 +97,8 @@ class ProjectResource extends Resource
                         ->label('Project API token')
                         ->password()
                         ->revealable()
-                        ->helperText('Generate in the linked letsdothis project (External API Access section).')
+                        ->dehydrated(fn ($state) => filled($state))
+                        ->helperText('Paste from the linked letsdothis project (External API Access). Leave empty to keep the current token.')
                         ->nullable(),
                 ])->columns(2)->collapsed(),
         ]);
