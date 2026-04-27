@@ -33,9 +33,17 @@ class ProjectResource extends Resource
                         ->alphaDash()
                         ->maxLength(255)
                         ->unique(ignoreRecord: true),
+                    Forms\Components\Select::make('users')
+                        ->multiple()
+                        ->relationship('users', 'name')
+                        ->preload()
+                        ->helperText('Non-admin users with access to this project.')
+                        ->visible(fn () => auth()->user()->hasRole('admin'))
+                        ->dehydrated(fn () => auth()->user()->hasRole('admin')),
                 ])->columns(2),
 
             Forms\Components\Section::make('Credentials')
+                ->visible(fn () => auth()->user()->hasRole('admin'))
                 ->description('Token is the path segment; secret is the HMAC signing key. Regenerate via the action on the list.')
                 ->schema([
                     Forms\Components\TextInput::make('token')
@@ -87,6 +95,7 @@ class ProjectResource extends Resource
 
             Forms\Components\Section::make('letsdothis link')
                 ->description('When set, an issue can be turned into a ticket in this letsdothis project with one click.')
+                ->visible(fn () => auth()->user()->hasRole('admin'))
                 ->schema([
                     Forms\Components\TextInput::make('letsdothis_base_url')
                         ->label('Base URL')
@@ -131,11 +140,13 @@ class ProjectResource extends Resource
                     ->label('Setup')
                     ->icon('heroicon-o-rocket-launch')
                     ->color('primary')
+                    ->visible(fn () => auth()->user()->hasRole('admin'))
                     ->url(fn (Project $record) => static::getUrl('setup', ['record' => $record])),
                 Tables\Actions\Action::make('regenerateSecret')
                     ->label('Regenerate secret')
                     ->icon('heroicon-o-key')
                     ->color('warning')
+                    ->visible(fn () => auth()->user()->hasRole('admin'))
                     ->requiresConfirmation()
                     ->modalDescription('This invalidates the current signing key. Clients must be updated with the new secret.')
                     ->action(function (Project $record): void {
@@ -160,5 +171,49 @@ class ProjectResource extends Resource
             'edit' => Pages\EditProject::route('/{record}/edit'),
             'setup' => Pages\SetupProject::route('/{record}/setup'),
         ];
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->check() && !auth()->user()->hasRole('admin')) {
+            $query->whereHas('users', fn ($q) => $q->where('users.id', auth()->id()));
+        }
+
+        return $query;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('admin') || auth()->user()->projects()->exists();
+    }
+
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->hasRole('admin') || $record->users->contains(auth()->id());
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->hasRole('admin') || $record->users->contains(auth()->id());
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function mutateFormDataBeforeSave(array $data): array
+    {
+        if (!auth()->user()->hasRole('admin')) {
+            unset($data['users']);
+        }
+        return $data;
     }
 }

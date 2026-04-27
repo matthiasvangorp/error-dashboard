@@ -23,7 +23,12 @@ class SetupProject extends Page
 
     protected function authorizeAccess(): void
     {
-        abort_unless(static::getResource()::canView($this->getRecord()), 403);
+        abort_unless(auth()->user()?->hasRole('admin'), 403);
+    }
+
+    public static function canAccess(array $parameters = []): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
     }
 
     public function getTitle(): string

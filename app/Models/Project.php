@@ -48,4 +48,9 @@ class Project extends Model
     {
         return $this->hasMany(Event::class);
     }
+
+    public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class);
+    }
 }

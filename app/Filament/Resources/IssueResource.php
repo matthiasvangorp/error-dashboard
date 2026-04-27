@@ -24,7 +24,35 @@ class IssueResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->with('project');
+        $query = parent::getEloquentQuery()->with('project');
+
+        if (auth()->check() && !auth()->user()->hasRole('admin')) {
+            $query->whereHas('project.users', fn ($q) => $q->where('users.id', auth()->id()));
+        }
+
+        return $query;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('admin') || auth()->user()->projects()->exists();
+    }
+
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->hasRole('admin')
+            || $record->project->users->contains(auth()->id());
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->hasRole('admin')
+            || $record->project->users->contains(auth()->id());
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->hasRole('admin');
     }
 
     public static function table(Table $table): Table

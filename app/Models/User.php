@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -50,7 +51,21 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        // Single-admin app — anyone seeded into the users table is the admin.
         return true;
+    }
+
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class);
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return $this->roles()->where('name', $role)->exists();
+    }
+
+    public function projects(): BelongsToMany
+    {
+        return $this->belongsToMany(Project::class);
     }
 }
