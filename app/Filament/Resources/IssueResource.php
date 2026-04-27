@@ -245,7 +245,10 @@ class IssueResource extends Resource
             ['Occurrences', (string) $issue->occurrence_count],
         ];
 
-        $html = '<p><a href="'.$e($url).'" target="_blank" rel="noopener">View issue in Error Dashboard ↗</a></p>';
+        $buttonStyle = 'display:inline-block;padding:0.5rem 1rem;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:0.375rem;font-weight:600;font-size:0.875rem;line-height:1.25;';
+        $html = '<p style="margin:0 0 1.5rem;">'
+            .'<a href="'.$e($url).'" target="_blank" rel="noopener" style="'.$buttonStyle.'">View issue in Error Dashboard ↗</a>'
+            .'</p>';
         $html .= '<ul>';
         foreach ($rows as [$label, $value]) {
             $html .= '<li><strong>'.$e($label).':</strong> '.$e($value).'</li>';
