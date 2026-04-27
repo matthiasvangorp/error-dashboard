@@ -18,8 +18,14 @@ class RecentIssuesFeed extends BaseWidget
 
     public function table(Table $table): Table
     {
+        $projectIds = auth()->user()->accessibleProjectIds();
+
         return $table
-            ->query(Issue::query()->with('project')->latest('last_seen_at')->limit(10))
+            ->query(Issue::query()
+                ->whereIn('project_id', $projectIds)
+                ->with('project')
+                ->latest('last_seen_at')
+                ->limit(10))
             ->columns([
                 Tables\Columns\TextColumn::make('project.name')->label('Project')->badge(),
                 Tables\Columns\TextColumn::make('title')->limit(70)->wrap(),

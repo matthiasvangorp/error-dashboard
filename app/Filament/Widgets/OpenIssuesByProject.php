@@ -18,12 +18,16 @@ class OpenIssuesByProject extends BaseWidget
 
     public function table(Table $table): Table
     {
+        $projectIds = auth()->user()->accessibleProjectIds();
+
         return $table
-            ->query(Project::query()->withCount([
-                'issues as open_issues_count' => fn ($q) => $q->where('status', IssueStatus::Open),
-                'issues as new_issues_24h_count' => fn ($q) => $q->where('first_seen_at', '>=', now()->subDay()),
-                'events as events_24h_count' => fn ($q) => $q->where('received_at', '>=', now()->subDay()),
-            ]))
+            ->query(Project::query()
+                ->whereIn('id', $projectIds)
+                ->withCount([
+                    'issues as open_issues_count' => fn ($q) => $q->where('status', IssueStatus::Open),
+                    'issues as new_issues_24h_count' => fn ($q) => $q->where('first_seen_at', '>=', now()->subDay()),
+                    'events as events_24h_count' => fn ($q) => $q->where('received_at', '>=', now()->subDay()),
+                ]))
             ->columns([
                 Tables\Columns\TextColumn::make('name')->sortable(),
                 Tables\Columns\TextColumn::make('open_issues_count')->label('Open')->sortable(),

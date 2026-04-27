@@ -5,7 +5,6 @@ namespace App\Filament\Widgets;
 use App\Enums\IssueStatus;
 use App\Models\Event;
 use App\Models\Issue;
-use App\Models\Project;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -15,17 +14,24 @@ class OpenIssuesOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        $openIssues = Issue::query()->where('status', IssueStatus::Open)->count();
+        $projectIds = auth()->user()->accessibleProjectIds();
+
+        $openIssues = Issue::query()
+            ->whereIn('project_id', $projectIds)
+            ->where('status', IssueStatus::Open)
+            ->count();
 
         $newIssues24h = Issue::query()
+            ->whereIn('project_id', $projectIds)
             ->where('first_seen_at', '>=', now()->subDay())
             ->count();
 
         $events24h = Event::query()
+            ->whereIn('project_id', $projectIds)
             ->where('received_at', '>=', now()->subDay())
             ->count();
 
-        $projectCount = Project::query()->count();
+        $projectCount = $projectIds->count();
 
         return [
             Stat::make('Open issues', (string) $openIssues)

@@ -68,4 +68,12 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->belongsToMany(Project::class);
     }
+
+    public function accessibleProjectIds(): \Illuminate\Support\Collection
+    {
+        if ($this->hasRole('admin')) {
+            return Project::query()->pluck('id');
+        }
+        return $this->projects()->pluck('projects.id');
+    }
 }
