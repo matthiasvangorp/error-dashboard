@@ -26,6 +26,8 @@ class Issue extends Model
         'last_seen_at',
         'occurrence_count',
         'last_event_id',
+        'letsdothis_ticket_id',
+        'letsdothis_ticket_url',
     ];
 
     protected $casts = [

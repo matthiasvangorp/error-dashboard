@@ -81,6 +81,22 @@ class ProjectResource extends Resource
                         ->placeholder('ops@example.com')
                         ->nullable(),
                 ]),
+
+            Forms\Components\Section::make('letsdothis link')
+                ->description('When set, an issue can be turned into a ticket in this letsdothis project with one click.')
+                ->schema([
+                    Forms\Components\TextInput::make('letsdothis_base_url')
+                        ->label('Base URL')
+                        ->url()
+                        ->placeholder('https://letsdothis.live')
+                        ->nullable(),
+                    Forms\Components\TextInput::make('letsdothis_project_token')
+                        ->label('Project API token')
+                        ->password()
+                        ->revealable()
+                        ->helperText('Generate in the linked letsdothis project (External API Access section).')
+                        ->nullable(),
+                ])->columns(2)->collapsed(),
         ]);
     }
 

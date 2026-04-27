@@ -18,17 +18,26 @@ class Project extends Model
         'event_retention_days',
         'rate_limit_per_minute',
         'alert_channels',
+        'letsdothis_base_url',
+        'letsdothis_project_token',
     ];
 
     protected $casts = [
         'alert_channels' => 'array',
         'event_retention_days' => 'integer',
         'rate_limit_per_minute' => 'integer',
+        'letsdothis_project_token' => 'encrypted',
     ];
 
     protected $hidden = [
         'secret',
+        'letsdothis_project_token',
     ];
+
+    public function isLinkedToLetsdothis(): bool
+    {
+        return filled($this->letsdothis_base_url) && filled($this->letsdothis_project_token);
+    }
 
     public function issues(): HasMany
     {

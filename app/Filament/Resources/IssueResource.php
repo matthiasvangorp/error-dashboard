@@ -7,9 +7,12 @@ use App\Enums\IssueStatus;
 use App\Enums\IssueType;
 use App\Filament\Resources\IssueResource\Pages;
 use App\Models\Issue;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class IssueResource extends Resource
 {
@@ -94,6 +97,20 @@ class IssueResource extends Resource
                     ->color('warning')
                     ->visible(fn (Issue $r) => $r->status !== IssueStatus::Open)
                     ->action(fn (Issue $r) => $r->update(['status' => IssueStatus::Open])),
+                Tables\Actions\Action::make('createTicket')
+                    ->label('Create ticket')
+                    ->icon('heroicon-o-ticket')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalDescription('Create a ticket in letsdothis for this issue?')
+                    ->visible(fn (Issue $r) => $r->letsdothis_ticket_id === null && $r->project->isLinkedToLetsdothis())
+                    ->action(fn (Issue $r) => static::createLetsdothisTicket($r)),
+                Tables\Actions\Action::make('viewTicket')
+                    ->label(fn (Issue $r) => 'Ticket #'.$r->letsdothis_ticket_id)
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->color('success')
+                    ->visible(fn (Issue $r) => $r->letsdothis_ticket_id !== null && $r->letsdothis_ticket_url !== null)
+                    ->url(fn (Issue $r) => $r->letsdothis_ticket_url, shouldOpenInNewTab: true),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -116,5 +133,110 @@ class IssueResource extends Resource
             'index' => Pages\ListIssues::route('/'),
             'view' => Pages\ViewIssue::route('/{record}'),
         ];
+    }
+
+    protected static function createLetsdothisTicket(Issue $issue): void
+    {
+        $project = $issue->project;
+        $base = rtrim((string) $project->letsdothis_base_url, '/');
+
+        $priority = match ($issue->level instanceof IssueLevel ? $issue->level : IssueLevel::tryFrom((string) $issue->level)) {
+            IssueLevel::Error => 'high',
+            IssueLevel::Warning => 'medium',
+            default => 'low',
+        };
+
+        try {
+            $response = Http::withToken($project->letsdothis_project_token)
+                ->acceptJson()
+                ->timeout(15)
+                ->post($base.'/api/tickets', [
+                    'title' => $issue->title,
+                    'description' => static::buildTicketDescription($issue),
+                    'priority' => $priority,
+                    'external_ref' => 'errors-dashboard:issue:'.$issue->id,
+                ]);
+        } catch (\Throwable $e) {
+            Log::error('Letsdothis ticket creation failed', [
+                'issue_id' => $issue->id,
+                'error' => $e->getMessage(),
+            ]);
+            Notification::make()
+                ->danger()
+                ->title('Could not reach letsdothis')
+                ->body($e->getMessage())
+                ->send();
+            return;
+        }
+
+        if (!$response->successful()) {
+            Log::warning('Letsdothis ticket creation rejected', [
+                'issue_id' => $issue->id,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            Notification::make()
+                ->danger()
+                ->title('Letsdothis rejected the request')
+                ->body('HTTP '.$response->status().' — '.\Illuminate\Support\Str::limit($response->body(), 200))
+                ->send();
+            return;
+        }
+
+        $payload = $response->json();
+        $issue->update([
+            'letsdothis_ticket_id' => $payload['id'] ?? null,
+            'letsdothis_ticket_url' => $payload['url'] ?? null,
+        ]);
+
+        $created = ($payload['status'] ?? null) === 'created';
+        Notification::make()
+            ->success()
+            ->title($created ? 'Ticket created' : 'Linked to existing ticket')
+            ->body('Ticket #'.($payload['id'] ?? '?'))
+            ->send();
+    }
+
+    protected static function buildTicketDescription(Issue $issue): string
+    {
+        $event = $issue->lastEvent;
+        $payload = $event?->payload ?? [];
+
+        $lines = [];
+        $lines[] = '**Project:** '.$issue->project->name;
+        $lines[] = '**Environment:** '.($issue->environment ?? '—');
+        $lines[] = '**Level:** '.($issue->level instanceof IssueLevel ? $issue->level->label() : (string) $issue->level);
+        $lines[] = '**Type:** '.($issue->type instanceof IssueType ? $issue->type->label() : (string) $issue->type);
+        $lines[] = '**First seen:** '.$issue->first_seen_at?->toDateTimeString();
+        $lines[] = '**Last seen:** '.$issue->last_seen_at?->toDateTimeString();
+        $lines[] = '**Occurrences:** '.$issue->occurrence_count;
+        $lines[] = '';
+        $lines[] = '**Dashboard:** '.static::getUrl('view', ['record' => $issue->id]);
+
+        if ($message = $payload['message'] ?? null) {
+            $lines[] = '';
+            $lines[] = '**Message:**';
+            $lines[] = (string) $message;
+        }
+
+        if ($exception = $payload['exception'] ?? null) {
+            $lines[] = '';
+            $lines[] = '**Exception:** '.($exception['class'] ?? '?').' at '.($exception['file'] ?? '?').':'.($exception['line'] ?? '?');
+            if (!empty($exception['trace']) && is_array($exception['trace'])) {
+                $lines[] = '';
+                $lines[] = '```';
+                foreach (array_slice($exception['trace'], 0, 20) as $frame) {
+                    $lines[] = sprintf(
+                        '%s:%s %s',
+                        $frame['file'] ?? '?',
+                        $frame['line'] ?? '?',
+                        $frame['function'] ?? ''
+                    );
+                }
+                $lines[] = '```';
+            }
+        }
+
+        return implode("\n", $lines);
     }
 }
