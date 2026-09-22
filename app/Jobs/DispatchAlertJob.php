@@ -30,6 +30,17 @@ class DispatchAlertJob implements ShouldQueue
             return;
         }
 
+        // Claim the alert atomically: only the first job to flip alerted_at
+        // from NULL gets to send. Retries or duplicate dispatches are no-ops.
+        $claimed = Issue::query()
+            ->whereKey($issue->id)
+            ->whereNull('alerted_at')
+            ->update(['alerted_at' => now()]);
+
+        if ($claimed === 0) {
+            return;
+        }
+
         $alerts->send($issue, $event, $this->reason);
     }
 }

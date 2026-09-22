@@ -3,6 +3,7 @@
 namespace App\Alerting\Channels;
 
 use App\Alerting\AlertChannel;
+use App\Filament\Resources\IssueResource;
 use App\Models\Event;
 use App\Models\Issue;
 use Illuminate\Support\Facades\Http;
@@ -10,8 +11,10 @@ use RuntimeException;
 
 class TelegramChannel implements AlertChannel
 {
-    public function __construct(private readonly ?string $botToken)
-    {
+    public function __construct(
+        private readonly ?string $botToken,
+        private readonly ?string $defaultChatId = null,
+    ) {
     }
 
     public function name(): string
@@ -21,16 +24,14 @@ class TelegramChannel implements AlertChannel
 
     public function send(Issue $issue, Event $event, string $reason): void
     {
-        if (! $this->botToken) {
-            throw new RuntimeException('TELEGRAM_BOT_TOKEN is not configured.');
-        }
-
-        $project = $issue->project;
-        $config = (array) ($project->alert_channels['telegram'] ?? []);
-        $chatId = $config['chat_id'] ?? null;
+        $chatId = $this->chatIdFor($issue);
 
         if (! $chatId) {
             return;
+        }
+
+        if (! $this->botToken) {
+            throw new RuntimeException('TELEGRAM_BOT_TOKEN is not configured.');
         }
 
         $text = $this->renderMessage($issue, $event, $reason);
@@ -49,6 +50,19 @@ class TelegramChannel implements AlertChannel
         }
     }
 
+    /**
+     * Project-level chat_id wins; otherwise fall back to TELEGRAM_CHAT_ID.
+     */
+    private function chatIdFor(Issue $issue): ?string
+    {
+        $config = (array) ($issue->project->alert_channels['telegram'] ?? []);
+        $chatId = $config['chat_id'] ?? null;
+
+        $chatId = is_string($chatId) || is_int($chatId) ? trim((string) $chatId) : '';
+
+        return $chatId !== '' ? $chatId : ($this->defaultChatId ?: null);
+    }
+
     private function renderMessage(Issue $issue, Event $event, string $reason): string
     {
         $project = $issue->project;
@@ -56,7 +70,7 @@ class TelegramChannel implements AlertChannel
         $title = htmlspecialchars($issue->title, ENT_QUOTES, 'UTF-8');
         $projectName = htmlspecialchars($project->name, ENT_QUOTES, 'UTF-8');
         $env = $event->environment ? " [{$event->environment}]" : '';
-        $url = rtrim(config('app.url'), '/').'/admin/issues/'.$issue->id;
+        $url = IssueResource::getUrl('view', ['record' => $issue->id], panel: 'admin');
 
         return <<<TXT
 <b>[{$badge}]</b> {$projectName}{$env}

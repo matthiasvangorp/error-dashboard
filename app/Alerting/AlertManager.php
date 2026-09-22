@@ -15,16 +15,13 @@ class AlertManager
     {
     }
 
+    /**
+     * Fan out to every channel. Each channel decides for itself whether it is
+     * configured for the project (or globally) and returns silently if not.
+     */
     public function send(Issue $issue, Event $event, string $reason): void
     {
-        $project = $issue->project;
-        $config = (array) ($project->alert_channels ?? []);
-
         foreach ($this->channels as $channel) {
-            if (! array_key_exists($channel->name(), $config)) {
-                continue;
-            }
-
             try {
                 $channel->send($issue, $event, $reason);
             } catch (\Throwable $e) {

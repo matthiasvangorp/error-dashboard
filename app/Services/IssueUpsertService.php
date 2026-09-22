@@ -48,7 +48,6 @@ class IssueUpsertService
                 ->first();
 
             $wasNewlyCreated = false;
-            $wasReopened = false;
 
             if (! $issue) {
                 $issue = new Issue([
@@ -68,7 +67,6 @@ class IssueUpsertService
             } else {
                 if ($issue->status === IssueStatus::Resolved) {
                     $issue->status = IssueStatus::Open;
-                    $wasReopened = true;
                 }
                 // Refresh title/level in case they shift (e.g. more informative message later).
                 $issue->title = $title;
@@ -90,11 +88,10 @@ class IssueUpsertService
             $issue->last_event_id = $event->id;
             $issue->save();
 
-            $alertReason = match (true) {
-                $wasNewlyCreated => 'new',
-                $wasReopened => 'reopened',
-                default => null,
-            };
+            // Alert exactly once per issue: on its first occurrence. Reopens and
+            // repeat occurrences stay silent (DispatchAlertJob also guards this
+            // via issues.alerted_at).
+            $alertReason = $wasNewlyCreated ? 'new' : null;
 
             return [
                 'issue' => $issue,

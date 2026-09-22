@@ -17,7 +17,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(AlertManager::class, function ($app) {
             return new AlertManager([
-                new TelegramChannel(config('services.telegram.bot_token')),
+                new TelegramChannel(
+                    config('services.telegram.bot_token'),
+                    config('services.telegram.chat_id'),
+                ),
                 new MailChannel(),
             ]);
         });

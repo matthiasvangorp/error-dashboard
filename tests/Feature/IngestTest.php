@@ -119,7 +119,7 @@ class IngestTest extends TestCase
         Queue::assertPushed(DispatchAlertJob::class, 1);
     }
 
-    public function test_reopening_a_resolved_issue_triggers_alert(): void
+    public function test_reopening_a_resolved_issue_does_not_alert_again(): void
     {
         Queue::fake();
 
@@ -143,8 +143,9 @@ class IngestTest extends TestCase
 
         $this->assertSame(IssueStatus::Open, Issue::first()->status);
 
-        Queue::assertPushed(DispatchAlertJob::class, 2);
-        Queue::assertPushed(DispatchAlertJob::class, fn (DispatchAlertJob $job) => $job->reason === 'reopened');
+        // Reopened, but alerts fire only on the very first occurrence.
+        Queue::assertPushed(DispatchAlertJob::class, 1);
+        Queue::assertPushed(DispatchAlertJob::class, fn (DispatchAlertJob $job) => $job->reason === 'new');
     }
 
     public function test_rate_limit_enforced_per_project(): void

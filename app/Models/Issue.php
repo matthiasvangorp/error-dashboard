@@ -26,6 +26,7 @@ class Issue extends Model
         'last_seen_at',
         'occurrence_count',
         'last_event_id',
+        'alerted_at',
         'letsdothis_ticket_id',
         'letsdothis_ticket_url',
     ];
@@ -36,6 +37,7 @@ class Issue extends Model
         'status' => IssueStatus::class,
         'first_seen_at' => 'datetime',
         'last_seen_at' => 'datetime',
+        'alerted_at' => 'datetime',
         'occurrence_count' => 'integer',
     ];
 

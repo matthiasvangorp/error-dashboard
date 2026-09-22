@@ -29,6 +29,27 @@ services:
       - mysql
       - redis
 
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}_queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan queue:work --queue=alerts,default --tries=3 --sleep=3 --timeout=60
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    environment:
+      - DB_HOST=${COMPOSE_PROJECT_NAME}_mysql
+      - REDIS_HOST=${COMPOSE_PROJECT_NAME}_redis
+      - MAIL_HOST=${COMPOSE_PROJECT_NAME}_mailpit
+    networks:
+      - internal
+    depends_on:
+      - mysql
+      - redis
+
   mysql:
     image: mysql:8.0
     container_name: ${COMPOSE_PROJECT_NAME}_mysql

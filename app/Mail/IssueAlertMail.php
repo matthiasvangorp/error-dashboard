@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Filament\Resources\IssueResource;
 use App\Models\Event;
 use App\Models\Issue;
 use Illuminate\Bus\Queueable;
@@ -39,7 +40,7 @@ class IssueAlertMail extends Mailable
                 'issue' => $this->issue,
                 'event' => $this->event,
                 'reason' => $this->reason,
-                'url' => rtrim(config('app.url'), '/').'/admin/issues/'.$this->issue->id,
+                'url' => IssueResource::getUrl('view', ['record' => $this->issue->id], panel: 'admin'),
             ],
         );
     }

@@ -37,6 +37,8 @@ return [
 
     'telegram' => [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        // Fallback chat for projects without their own alert_channels.telegram.chat_id.
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
     ],
 
 ];

@@ -28,15 +28,13 @@ Host-agnostic: deploy on any VPS, RunCloud, Linode, Cloudways, Azure, etc.
 
 ## Alerting
 
-One alert per signal-to-noise trigger:
-- New issue (first occurrence of a fingerprint).
-- Reopen — issue was `resolved` and a new event arrived.
+Exactly one alert per issue, sent on the first occurrence of a fingerprint. Repeat occurrences and reopens (issue was `resolved` and a new event arrived) increment the counter silently and never alert again.
 
-Subsequent occurrences of an open issue increment the counter silently. Alert channels dispatch on the `alerts` queue via `DispatchAlertJob`.
+Alert channels dispatch on the `alerts` queue via `DispatchAlertJob`. The job stamps `issues.alerted_at` atomically before sending, so retries or duplicate dispatches cannot produce a second message.
 
 ### Channels (v1)
-- Telegram — set `TELEGRAM_BOT_TOKEN` in `.env`; per-project `chat_id` stored in `projects.alert_channels`.
-- Email — per-project recipient list in `projects.alert_channels.email`.
+- Telegram — set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (same bot as ccs). `TELEGRAM_CHAT_ID` is the default for every project; a project can override it via `alert_channels.telegram.chat_id` in the panel.
+- Email — per-project recipient list in `projects.alert_channels.email`. Nothing is sent when the list is empty.
 
 Add new channels by implementing `App\Alerting\AlertChannel` and registering the instance in `AppServiceProvider`.
 
@@ -61,7 +59,7 @@ Set at minimum in `.env`:
 - `QUEUE_CONNECTION=database`
 - `CACHE_STORE=database` (or `file` if the DB is tight)
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` — consumed by `DatabaseSeeder`
-- `TELEGRAM_BOT_TOKEN` — optional
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — optional
 - `TRUSTED_PROXIES=<your_proxy_ip_range>` in production (use `*` only in dev)
 
 ### Queue worker (systemd)
@@ -124,9 +122,9 @@ docker-compose exec app php artisan migrate --seed
 Admin: https://errors.test/admin (credentials from `.env` `ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 Mail: https://mail.errors.test (Mailpit catches everything).
 
-Run the queue worker:
+The queue worker runs as its own `queue` container (see `docker-compose.yml`), started by `dup`. Follow it with:
 ```bash
-docker-compose exec app php artisan queue:work --queue=alerts,default
+docker-compose logs -f queue
 ```
 
 ## Testing
@@ -140,7 +138,8 @@ Feature coverage (see `tests/Feature/IngestTest.php`):
 - Invalid HMAC → 401
 - Unknown token → 404
 - Duplicate fingerprint increments counter, no duplicate alert
-- Resolving + re-ingesting triggers a reopen alert
+- Resolving + re-ingesting reopens the issue without a second alert
+- `DispatchAlertJob` sends Telegram once per issue, honours project chat_id override (see `tests/Feature/AlertJobTest.php`)
 - Per-project rate limit enforced
 - Log events group by templatized message
 
