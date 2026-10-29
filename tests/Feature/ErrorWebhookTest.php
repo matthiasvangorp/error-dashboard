@@ -217,6 +217,38 @@ class ErrorWebhookTest extends TestCase
         Http::assertSent(fn (Request $request) => $request['environment'] === 'production');
     }
 
+    public function test_command_resends_a_real_issue(): void
+    {
+        config()->set('services.error_webhook.url', '');
+        $this->ingest($this->project);
+        config()->set('services.error_webhook.url', self::WEBHOOK);
+
+        $issue = Issue::first();
+
+        $this->artisan('errors:test-webhook', ['project' => 'products-that-matter', '--issue' => $issue->id])
+            ->assertSuccessful();
+
+        $this->assertCount(1, $this->webhookRequests());
+        Http::assertSent(fn (Request $request) => $request->url() !== self::WEBHOOK || (
+            $request['environment'] === 'production'
+            && $request['message'] === 'Login failed for password=[REDACTED]'
+            && str_ends_with($request['error_url'], '/issues/'.$issue->id)
+        ));
+    }
+
+    public function test_command_rejects_an_issue_from_another_project(): void
+    {
+        config()->set('services.error_webhook.url', '');
+        $other = Project::factory()->create();
+        $this->ingest($other);
+        config()->set('services.error_webhook.url', self::WEBHOOK);
+
+        $this->artisan('errors:test-webhook', ['project' => 'products-that-matter', '--issue' => Issue::first()->id])
+            ->assertFailed();
+
+        $this->assertCount(0, $this->webhookRequests());
+    }
+
     public function test_command_fails_for_unknown_project(): void
     {
         $this->artisan('errors:test-webhook', ['project' => 'nope'])->assertFailed();
