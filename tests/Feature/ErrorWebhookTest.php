@@ -205,7 +205,16 @@ class ErrorWebhookTest extends TestCase
         Http::assertSent(fn (Request $request) => $request->url() === self::WEBHOOK
             && $request->header('Authorization') === ['Bearer s3cr3t-webhook']
             && $request['project'] === 'products-that-matter'
-            && $request['exception'] === 'RuntimeException');
+            && $request['exception'] === 'RuntimeException'
+            && $request['environment'] === 'testing');
+    }
+
+    public function test_command_environment_can_be_overridden(): void
+    {
+        $this->artisan('errors:test-webhook', ['project' => 'products-that-matter', '--environment' => 'production'])
+            ->assertSuccessful();
+
+        Http::assertSent(fn (Request $request) => $request['environment'] === 'production');
     }
 
     public function test_command_fails_for_unknown_project(): void

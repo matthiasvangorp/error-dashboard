@@ -50,7 +50,7 @@ Body fields: `project` (slug), `environment`, `exception`, `message`, `file`, `l
 
 Delivery uses a 10s timeout and 3 retries (backoff 10s / 60s / 300s). Failures are logged and never affect ingestion or Telegram.
 
-Test it end to end with `php artisan errors:test-webhook <project-slug>` (sends inline and prints the response); add `--queue` to go through the worker instead.
+Test it end to end with `php artisan errors:test-webhook <project-slug>` (sends inline and prints the response); add `--queue` to go through the worker instead. The sample is tagged `environment: testing`; pass `--environment=production` (or Laravel's global `--env=production`) to change that.
 
 ## Deployment
 

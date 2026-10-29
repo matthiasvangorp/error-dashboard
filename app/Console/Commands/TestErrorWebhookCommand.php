@@ -11,7 +11,8 @@ class TestErrorWebhookCommand extends Command
 {
     protected $signature = 'errors:test-webhook
         {project : Project slug}
-        {--queue : Dispatch through the queue worker instead of sending inline}';
+        {--queue : Dispatch through the queue worker instead of sending inline}
+        {--environment= : Environment to put in the payload (default: testing). Laravel\'s global --env is accepted too}';
 
     protected $description = 'Send a fake sample error for a project to ERROR_WEBHOOK_URL.';
 
@@ -37,9 +38,13 @@ class TestErrorWebhookCommand extends Command
 
         $now = now()->utc()->toIso8601String();
 
+        // --env is Laravel's global option (it also picks the environment the
+        // app boots in), so it can't be redefined here; honour it as a fallback.
+        $environment = $this->option('environment') ?: $this->option('env') ?: 'testing';
+
         $payload = $webhook->buildPayload([
             'project' => $project->slug,
-            'environment' => 'testing',
+            'environment' => $environment,
             'exception' => 'RuntimeException',
             'message' => 'Sample error from errors:test-webhook — safe to ignore.',
             'file' => '/var/www/html/app/Http/Controllers/ExampleController.php',
