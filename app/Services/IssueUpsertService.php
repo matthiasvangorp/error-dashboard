@@ -19,7 +19,7 @@ class IssueUpsertService
 
     /**
      * @param  array<string, mixed>  $payload
-     * @return array{issue: Issue, event: Event, alert_reason: ?string}
+     * @return array{issue: Issue, event: Event, alert_reason: ?string, forward_reason: ?string}
      */
     public function ingest(Project $project, array $payload): array
     {
@@ -48,6 +48,7 @@ class IssueUpsertService
                 ->first();
 
             $wasNewlyCreated = false;
+            $wasReopened = false;
 
             if (! $issue) {
                 $issue = new Issue([
@@ -67,6 +68,7 @@ class IssueUpsertService
             } else {
                 if ($issue->status === IssueStatus::Resolved) {
                     $issue->status = IssueStatus::Open;
+                    $wasReopened = true;
                 }
                 // Refresh title/level in case they shift (e.g. more informative message later).
                 $issue->title = $title;
@@ -93,10 +95,14 @@ class IssueUpsertService
             // via issues.alerted_at).
             $alertReason = $wasNewlyCreated ? 'new' : null;
 
+            // The webhook additionally fires when a resolved issue comes back.
+            $forwardReason = $wasNewlyCreated ? 'new' : ($wasReopened ? 'reopened' : null);
+
             return [
                 'issue' => $issue,
                 'event' => $event,
                 'alert_reason' => $alertReason,
+                'forward_reason' => $forwardReason,
             ];
         });
     }

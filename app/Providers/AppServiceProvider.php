@@ -6,6 +6,7 @@ use App\Alerting\AlertManager;
 use App\Alerting\Channels\MailChannel;
 use App\Alerting\Channels\TelegramChannel;
 use App\Models\Project;
+use App\Services\ErrorWebhook;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -24,6 +25,12 @@ class AppServiceProvider extends ServiceProvider
                 new MailChannel(),
             ]);
         });
+
+        $this->app->bind(ErrorWebhook::class, fn () => new ErrorWebhook(
+            config('services.error_webhook.url'),
+            config('services.error_webhook.auth'),
+            config('services.error_webhook.projects'),
+        ));
     }
 
     public function boot(): void

@@ -38,6 +38,20 @@ Alert channels dispatch on the `alerts` queue via `DispatchAlertJob`. The job st
 
 Add new channels by implementing `App\Alerting\AlertChannel` and registering the instance in `AppServiceProvider`.
 
+### Error webhook
+
+Separate from the alert channels above, issues can be forwarded as JSON to an external webhook via `ForwardErrorToWebhookJob` (also on the `alerts` queue). It fires on the first occurrence of an issue **and** when a resolved issue comes back; plain repeat occurrences are not forwarded.
+
+- `ERROR_WEBHOOK_URL` — target URL. Empty disables forwarding entirely.
+- `ERROR_WEBHOOK_AUTH` — sent verbatim as the `Authorization` header (e.g. `Bearer abc123`).
+- `ERROR_WEBHOOK_PROJECTS` — comma-separated project slugs to forward (e.g. `products-that-matter`). Empty forwards every project.
+
+Body fields: `project` (slug), `environment`, `exception`, `message`, `file`, `line`, `trace`, `url`, `method`, `occurrences`, `first_seen`, `last_seen` (ISO 8601), `error_url`. For log-type issues `exception`, `file`, `line` and `trace` are `null`. Request headers, cookies and the rest of the event context are never sent; credential-looking values (`password=…`, `*_KEY=…`, `?token=…`, `Bearer …`, `user:pass@` in URLs) are replaced with `[REDACTED]`, and stack frames carry no call arguments.
+
+Delivery uses a 10s timeout and 3 retries (backoff 10s / 60s / 300s). Failures are logged and never affect ingestion or Telegram.
+
+Test it end to end with `php artisan errors:test-webhook <project-slug>` (sends inline and prints the response); add `--queue` to go through the worker instead.
+
 ## Deployment
 
 ### Bootstrap
@@ -140,6 +154,7 @@ Feature coverage (see `tests/Feature/IngestTest.php`):
 - Duplicate fingerprint increments counter, no duplicate alert
 - Resolving + re-ingesting reopens the issue without a second alert
 - `DispatchAlertJob` sends Telegram once per issue, honours project chat_id override (see `tests/Feature/AlertJobTest.php`)
+- Error webhook: payload shape + scrubbing, Authorization header, project filter, no forwarding of repeats, reopen forwarded, test command (see `tests/Feature/ErrorWebhookTest.php`)
 - Per-project rate limit enforced
 - Log events group by templatized message
 

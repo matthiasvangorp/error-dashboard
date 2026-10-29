@@ -41,4 +41,13 @@ return [
         'chat_id' => env('TELEGRAM_CHAT_ID'),
     ],
 
+    'error_webhook' => [
+        // Empty URL disables forwarding entirely.
+        'url' => env('ERROR_WEBHOOK_URL'),
+        // Sent verbatim as the Authorization header (e.g. "Bearer abc123").
+        'auth' => env('ERROR_WEBHOOK_AUTH'),
+        // Comma-separated project slugs; empty forwards every project.
+        'projects' => env('ERROR_WEBHOOK_PROJECTS'),
+    ],
+
 ];

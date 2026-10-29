@@ -31,6 +31,12 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- Never let tests reach real alert targets configured in .env. -->
+        <env name="TELEGRAM_BOT_TOKEN" value="" force="true"/>
+        <env name="TELEGRAM_CHAT_ID" value="" force="true"/>
+        <env name="ERROR_WEBHOOK_URL" value="" force="true"/>
+        <env name="ERROR_WEBHOOK_AUTH" value="" force="true"/>
+        <env name="ERROR_WEBHOOK_PROJECTS" value="" force="true"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>
